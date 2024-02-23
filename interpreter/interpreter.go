@@ -17,7 +17,7 @@ var (
 	versionOpt = flag.Bool("v", false, "display version information")
 )
 
-const version = "v0.0.1"
+const version = "v0.0.2"
 
 type Interpreter struct {
 	args   []string
