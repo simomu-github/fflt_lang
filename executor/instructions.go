@@ -182,6 +182,10 @@ func (d Division) Execute(executor *Executor) error {
 		return runtimeErrorWithToken(executor, d.Token, "stack is empty")
 	}
 
+	if rhs == 0 {
+		return runtimeErrorWithToken(executor, d.Token, "integer divide by zero")
+	}
+
 	lhs, errLhs := executor.Pop()
 	if errLhs != nil {
 		return runtimeErrorWithToken(executor, d.Token, "stack is empty")
@@ -200,6 +204,10 @@ func (m Modulo) Execute(executor *Executor) error {
 	rhs, errRhs := executor.Pop()
 	if errRhs != nil {
 		return runtimeErrorWithToken(executor, m.Token, "stack is empty")
+	}
+
+	if rhs == 0 {
+		return runtimeErrorWithToken(executor, m.Token, "integer divide by zero")
 	}
 
 	lhs, errLhs := executor.Pop()

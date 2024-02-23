@@ -124,6 +124,14 @@ func TestDivision(t *testing.T) {
 	divition.Execute(executor)
 
 	assert.Equal(t, []int{2}, executor.stack)
+
+	t.Run("when divide by zero", func(t *testing.T) {
+		executor.stack = []int{4, 0}
+
+		divition := Division{}
+		err := divition.Execute(executor)
+		assert.NotNil(t, err)
+	})
 }
 
 func TestModulo(t *testing.T) {
@@ -134,6 +142,14 @@ func TestModulo(t *testing.T) {
 	modulo.Execute(executor)
 
 	assert.Equal(t, []int{2}, executor.stack)
+
+	t.Run("when modulo by zero", func(t *testing.T) {
+		executor.stack = []int{5, 0}
+
+		divition := Modulo{}
+		err := divition.Execute(executor)
+		assert.NotNil(t, err)
+	})
 }
 
 func TestStore(t *testing.T) {
