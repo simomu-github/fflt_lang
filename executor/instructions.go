@@ -9,6 +9,7 @@ import (
 
 type Instruction interface {
 	Execute(executor *Executor) error
+	Disassenble() string
 }
 
 type Push struct {
@@ -19,6 +20,10 @@ func (p Push) Execute(executor *Executor) error {
 	executor.stack = append(executor.stack, p.Value)
 
 	return nil
+}
+
+func (p Push) Disassenble() string {
+	return fmt.Sprintf("PUSH           %d", p.Value)
 }
 
 type Swap struct {
@@ -41,6 +46,10 @@ func (s Swap) Execute(executor *Executor) error {
 	return nil
 }
 
+func (s Swap) Disassenble() string {
+	return "SWAP"
+}
+
 type Duplicate struct {
 	Token lexer.Token
 }
@@ -56,12 +65,20 @@ func (d Duplicate) Execute(executor *Executor) error {
 	return nil
 }
 
+func (d Duplicate) Disassenble() string {
+	return "DUP"
+}
+
 type Discard struct{}
 
 func (d Discard) Execute(executor *Executor) error {
 	executor.Pop()
 
 	return nil
+}
+
+func (d Discard) Disassenble() string {
+	return "DISCARD"
 }
 
 type Copy struct {
@@ -85,6 +102,10 @@ func (c Copy) Execute(executor *Executor) error {
 	value := executor.stack[len(executor.stack)-1-c.Value]
 	executor.Push(value)
 	return nil
+}
+
+func (c Copy) Disassenble() string {
+	return fmt.Sprintf("COPY           %d", c.Value)
 }
 
 type Slide struct {
@@ -112,6 +133,10 @@ func (s Slide) Execute(executor *Executor) error {
 	return nil
 }
 
+func (s Slide) Disassenble() string {
+	return fmt.Sprintf("SLIDE          %d", s.Value)
+}
+
 type Addition struct {
 	Token lexer.Token
 }
@@ -130,6 +155,10 @@ func (a Addition) Execute(executor *Executor) error {
 	executor.Push(lhs + rhs)
 
 	return nil
+}
+
+func (a Addition) Disassenble() string {
+	return "ADD"
 }
 
 type Subtraction struct {
@@ -152,6 +181,10 @@ func (s Subtraction) Execute(executor *Executor) error {
 	return nil
 }
 
+func (s Subtraction) Disassenble() string {
+	return "SUB"
+}
+
 type Multiplication struct {
 	Token lexer.Token
 }
@@ -170,6 +203,10 @@ func (m Multiplication) Execute(executor *Executor) error {
 	executor.Push(lhs * rhs)
 
 	return nil
+}
+
+func (m Multiplication) Disassenble() string {
+	return "MUL"
 }
 
 type Division struct {
@@ -196,6 +233,10 @@ func (d Division) Execute(executor *Executor) error {
 	return nil
 }
 
+func (d Division) Disassenble() string {
+	return "DIV"
+}
+
 type Modulo struct {
 	Token lexer.Token
 }
@@ -220,6 +261,10 @@ func (m Modulo) Execute(executor *Executor) error {
 	return nil
 }
 
+func (m Modulo) Disassenble() string {
+	return "MOD"
+}
+
 type Getc struct {
 	Token lexer.Token
 }
@@ -238,6 +283,10 @@ func (g Getc) Execute(executor *Executor) error {
 
 	executor.heap[address] = int([]rune(text)[0])
 	return nil
+}
+
+func (g Getc) Disassenble() string {
+	return "GETC"
 }
 
 type Getn struct {
@@ -260,6 +309,10 @@ func (g Getn) Execute(executor *Executor) error {
 	return nil
 }
 
+func (g Getn) Disassenble() string {
+	return "GETN"
+}
+
 type Putc struct {
 	Token lexer.Token
 }
@@ -275,6 +328,10 @@ func (p Putc) Execute(executor *Executor) error {
 	return nil
 }
 
+func (p Putc) Disassenble() string {
+	return "PUTC"
+}
+
 type Putn struct {
 	Token lexer.Token
 }
@@ -288,6 +345,10 @@ func (p Putn) Execute(executor *Executor) error {
 	executor.Output(fmt.Sprintf("%d", n))
 
 	return nil
+}
+
+func (p Putn) Disassenble() string {
+	return "PUTN"
 }
 
 type Store struct {
@@ -309,6 +370,10 @@ func (s Store) Execute(executor *Executor) error {
 	return nil
 }
 
+func (s Store) Disassenble() string {
+	return "STORE"
+}
+
 type Retrieve struct {
 	Token lexer.Token
 }
@@ -328,10 +393,20 @@ func (r Retrieve) Execute(executor *Executor) error {
 	return nil
 }
 
-type MarkLabel struct{}
+func (r Retrieve) Disassenble() string {
+	return "RETRIEVE"
+}
+
+type MarkLabel struct {
+	Label string
+}
 
 func (m MarkLabel) Execute(executor *Executor) error {
 	return nil
+}
+
+func (m MarkLabel) Disassenble() string {
+	return "\nLABEL          " + m.Label
 }
 
 type CallSubroutine struct {
@@ -352,6 +427,10 @@ func (c CallSubroutine) Execute(executor *Executor) error {
 	return nil
 }
 
+func (c CallSubroutine) Disassenble() string {
+	return "CALLSUB        " + c.Label
+}
+
 type EndSubroutine struct {
 	Token lexer.Token
 }
@@ -364,6 +443,10 @@ func (e EndSubroutine) Execute(executor *Executor) error {
 
 	executor.programCounter = counter
 	return nil
+}
+
+func (e EndSubroutine) Disassenble() string {
+	return "ENDSUB"
 }
 
 type JumpLabel struct {
@@ -379,6 +462,10 @@ func (j JumpLabel) Execute(executor *Executor) error {
 
 	executor.programCounter = newCounter
 	return nil
+}
+
+func (j JumpLabel) Disassenble() string {
+	return "JUMP           " + j.Label
 }
 
 type JumpLabelWhenZero struct {
@@ -405,6 +492,10 @@ func (j JumpLabelWhenZero) Execute(executor *Executor) error {
 	return nil
 }
 
+func (j JumpLabelWhenZero) Disassenble() string {
+	return "JUMP_WHEN_ZERO " + j.Label
+}
+
 type JumpLabelWhenNegative struct {
 	Token lexer.Token
 	Label string
@@ -429,9 +520,17 @@ func (j JumpLabelWhenNegative) Execute(executor *Executor) error {
 	return nil
 }
 
+func (j JumpLabelWhenNegative) Disassenble() string {
+	return "JUMP_WHEN_NEGA " + j.Label
+}
+
 type EndProgram struct{}
 
 func (e EndProgram) Execute(executor *Executor) error {
 	executor.programCounter = len(executor.Instructions)
 	return nil
+}
+
+func (e EndProgram) Disassenble() string {
+	return "END"
 }

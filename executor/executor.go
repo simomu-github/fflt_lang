@@ -26,6 +26,13 @@ func (executor *Executor) Run() error {
 	return nil
 }
 
+func (executor *Executor) Disassenble() {
+	for _, ins := range executor.Instructions {
+		executor.Output(ins.Disassenble())
+		executor.Output("\n")
+	}
+}
+
 func (executor *Executor) Push(value int) {
 	executor.stack = append(executor.stack, value)
 }
