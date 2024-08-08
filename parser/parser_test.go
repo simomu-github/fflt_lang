@@ -132,7 +132,7 @@ func TestParseTokenWithParameter(t *testing.T) {
 		executor.Push{Value: 15},
 		executor.Copy{Token: tokens[2], Value: 7},
 		executor.Slide{Token: tokens[4], Value: 3},
-		executor.MarkLabel{},
+		executor.MarkLabel{Label: "L"},
 		executor.JumpLabel{Token: tokens[8], Label: "L"},
 		executor.JumpLabelWhenZero{Token: tokens[10], Label: "L"},
 		executor.JumpLabelWhenNegative{Token: tokens[12], Label: "L"},
@@ -191,7 +191,7 @@ func TestParseWhenExistsCallLabelBeforeMarkLabel(t *testing.T) {
 
 	expectedInstructions := []executor.Instruction{
 		executor.JumpLabel{Token: tokens[0], Label: "F"},
-		executor.MarkLabel{},
+		executor.MarkLabel{Label: "F"},
 	}
 
 	expectedLabelMap := map[string]int{

@@ -121,7 +121,7 @@ func parseTokenWithParameter(state parseState, token lexer.Token, nextToken lexe
 		}
 
 		state.labelMap[label] = len(state.instructions)
-		state.instructions = append(state.instructions, executor.MarkLabel{})
+		state.instructions = append(state.instructions, executor.MarkLabel{Label: label})
 	case lexer.CallSubroutine:
 		label, err := parseLabel(state, nextToken)
 		if err != nil {
