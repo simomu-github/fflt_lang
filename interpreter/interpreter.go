@@ -15,18 +15,17 @@ import (
 
 var (
 	versionOpt = flag.Bool("v", false, "display version information")
+	dumpOpt    = flag.Bool("dump", false, "disassemble instructions")
 )
 
 const version = "v0.0.2"
 
 type Interpreter struct {
-	args   []string
 	stderr io.Writer
 }
 
 func New() *Interpreter {
 	return &Interpreter{
-		args:   os.Args,
 		stderr: os.Stderr,
 	}
 }
@@ -37,18 +36,18 @@ func (i *Interpreter) Run() int {
 		flag.PrintDefaults()
 	}
 
-	if len(i.args) < 2 {
-		flag.Usage()
-		return 1
-	}
-
 	flag.Parse()
 	if *versionOpt {
 		fmt.Printf("fflt_lang version %s\n", version)
 		return 1
 	}
 
-	filename := i.args[1]
+	if len(flag.Args()) < 1 {
+		flag.Usage()
+		return 1
+	}
+
+	filename := flag.Arg(0)
 
 	bytes, errReadFile := ioutil.ReadFile(filename)
 	if errReadFile != nil {
@@ -81,6 +80,12 @@ func (i *Interpreter) Run() int {
 			fmt.Printf(str)
 		},
 	}
+
+	if *dumpOpt {
+		executor.Disassenble()
+		return 0
+	}
+
 	errRuntime := executor.Run()
 	if errRuntime != nil {
 		fmt.Fprintln(i.stderr, errRuntime.Error())
