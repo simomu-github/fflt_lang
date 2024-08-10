@@ -5,16 +5,24 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/peterh/liner"
 )
 
+var (
+	commands = []string{"s", "step", "is", "info stack", "ih", "info heap", "iv", "info vm"}
+)
+
 type Debugger struct {
-	executor         *Executor
-	stackTableWriter *tablewriter.Table
-	heapTableWriter  *tablewriter.Table
-	stdout           string
+	executor             *Executor
+	stackTableWriter     *tablewriter.Table
+	heapTableWriter      *tablewriter.Table
+	labelMapTableWriter  *tablewriter.Table
+	callStackTableWriter *tablewriter.Table
+	stdin                *liner.State
+	stdout               string
 }
 
 func NewDebugger(executor *Executor) *Debugger {
@@ -24,10 +32,24 @@ func NewDebugger(executor *Executor) *Debugger {
 	heapTableWriter := tablewriter.NewWriter(os.Stdout)
 	heapTableWriter.SetHeader([]string{"Address", "Value"})
 
+	labelMapTableWriter := tablewriter.NewWriter(os.Stdout)
+	labelMapTableWriter.SetHeader([]string{"Label", "Instruction index"})
+
+	callStackTableWriter := tablewriter.NewWriter(os.Stdout)
+	callStackTableWriter.SetHeader([]string{"Instruction index"})
+
 	debugger := &Debugger{
-		executor:         executor,
-		stackTableWriter: stackTableWriter,
-		heapTableWriter:  heapTableWriter,
+		executor:             executor,
+		stackTableWriter:     stackTableWriter,
+		heapTableWriter:      heapTableWriter,
+		labelMapTableWriter:  labelMapTableWriter,
+		callStackTableWriter: callStackTableWriter,
+		stdin:                liner.NewLiner(),
+	}
+
+	executor.Input = func() string {
+		str, _ := debugger.stdin.Prompt("")
+		return str
 	}
 
 	executor.Output = func(value string) {
@@ -38,12 +60,24 @@ func NewDebugger(executor *Executor) *Debugger {
 }
 
 func (d *Debugger) Run() error {
-	line := liner.NewLiner()
-	line.SetCtrlCAborts(true)
+	defer func() {
+		d.stdin.Close()
+	}()
+
+	d.stdin.SetCtrlCAborts(true)
+	d.stdin.SetCompleter(func(line string) (c []string) {
+		for _, command := range commands {
+			if strings.HasPrefix(command, line) {
+				c = append(c, command)
+			}
+		}
+		return
+	})
+
 	historyPath := filepath.Join(os.TempDir(), ".fflt_debug_history")
 
 	if f, err := os.Open(historyPath); err == nil {
-		line.ReadHistory(f)
+		d.stdin.ReadHistory(f)
 		f.Close()
 	}
 
@@ -53,11 +87,12 @@ func (d *Debugger) Run() error {
 	for d.executor.programCounter = 0; d.executor.programCounter < len(d.executor.Instructions); {
 		inst := d.executor.Instructions[d.executor.programCounter]
 		fmt.Printf("\n")
+		fmt.Printf("Program counter: %d\n", d.executor.programCounter)
 		fmt.Printf("Current instruction: " + inst.Disassenble() + "\n")
 		fmt.Printf("Output: " + d.stdout + "\n")
 		d.showStack()
 
-		if err := d.handleCommand(line); err != nil {
+		if err := d.handleCommand(); err != nil {
 			return err
 		}
 	}
@@ -65,28 +100,36 @@ func (d *Debugger) Run() error {
 	if f, err := os.Create(historyPath); err != nil {
 		log.Print("Error writing history file: ", err)
 	} else {
-		line.WriteHistory(f)
+		d.stdin.WriteHistory(f)
 		f.Close()
 	}
 
 	return nil
 }
 
-func (d *Debugger) handleCommand(line *liner.State) error {
+func (d *Debugger) handleCommand() error {
 	for true {
-		if command, err := line.Prompt("> "); err == nil {
+		if command, err := d.stdin.Prompt("> "); err == nil {
 			switch command {
 			case "s", "step":
+				d.stdin.AppendHistory(command)
+
 				err := d.executor.Instructions[d.executor.programCounter].Execute(d.executor)
 				if err != nil {
-					return err
+					fmt.Fprintln(os.Stderr, err.Error())
+				} else {
+					d.executor.programCounter++
 				}
-				d.executor.programCounter++
 				return nil
 			case "is", "info stack":
+				d.stdin.AppendHistory(command)
 				d.showStack()
 			case "ih", "info heap":
+				d.stdin.AppendHistory(command)
 				d.showHeap()
+			case "iv", "info vm":
+				d.stdin.AppendHistory(command)
+				d.showVM()
 			}
 		} else {
 			return err
@@ -94,6 +137,16 @@ func (d *Debugger) handleCommand(line *liner.State) error {
 	}
 
 	return nil
+}
+
+func (d *Debugger) showVM() {
+	fmt.Printf("\n")
+	fmt.Printf("Filename: %s\n", d.executor.Filename)
+	fmt.Printf("Program counter: %d\n", d.executor.programCounter)
+	d.showLabelMap()
+	d.showCallStack()
+	d.showStack()
+	d.showHeap()
 }
 
 func (d *Debugger) showStack() {
@@ -117,4 +170,25 @@ func (d *Debugger) showHeap() {
 
 	fmt.Printf("\n")
 	d.heapTableWriter.Render()
+}
+
+func (d *Debugger) showLabelMap() {
+	d.labelMapTableWriter.ClearRows()
+	for k, v := range d.executor.LabelMap {
+		d.labelMapTableWriter.Append([]string{
+			k,
+			fmt.Sprintf("%d", v),
+		})
+	}
+	fmt.Printf("\n")
+	d.labelMapTableWriter.Render()
+}
+
+func (d *Debugger) showCallStack() {
+	d.callStackTableWriter.ClearRows()
+	for i := len(d.executor.callStack) - 1; i >= 0; i-- {
+		d.callStackTableWriter.Append([]string{fmt.Sprintf("%d", d.executor.callStack[i])})
+	}
+	fmt.Printf("\n")
+	d.callStackTableWriter.Render()
 }

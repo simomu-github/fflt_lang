@@ -89,7 +89,10 @@ func (i *Interpreter) Run() int {
 
 	if *debugOpt {
 		debugger := executor.NewDebugger(&exe)
-		debugger.Run()
+		if err := debugger.Run(); err != nil {
+			fmt.Fprintln(i.stderr, err.Error())
+			return 1
+		}
 		return 0
 	}
 
