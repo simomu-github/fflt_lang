@@ -15,6 +15,10 @@ var (
 	commands = []string{"s", "step", "is", "info stack", "ih", "info heap", "iv", "info vm"}
 )
 
+const (
+	HeaderLength = 64
+)
+
 type Debugger struct {
 	executor             *Executor
 	stackTableWriter     *tablewriter.Table
@@ -156,6 +160,7 @@ func (d *Debugger) showStack() {
 	}
 
 	fmt.Printf("\n")
+	outputHeader("Stack")
 	d.stackTableWriter.Render()
 }
 
@@ -169,6 +174,7 @@ func (d *Debugger) showHeap() {
 	}
 
 	fmt.Printf("\n")
+	outputHeader("Heap")
 	d.heapTableWriter.Render()
 }
 
@@ -181,6 +187,7 @@ func (d *Debugger) showLabelMap() {
 		})
 	}
 	fmt.Printf("\n")
+	outputHeader("Label map")
 	d.labelMapTableWriter.Render()
 }
 
@@ -190,5 +197,12 @@ func (d *Debugger) showCallStack() {
 		d.callStackTableWriter.Append([]string{fmt.Sprintf("%d", d.executor.callStack[i])})
 	}
 	fmt.Printf("\n")
+	outputHeader("Callstack")
 	d.callStackTableWriter.Render()
+}
+
+func outputHeader(title string) {
+	str := "-- " + title + " "
+	remaining := HeaderLength - len(str)
+	fmt.Print(str + strings.Repeat("-", remaining) + "\n")
 }
