@@ -35,15 +35,16 @@ const (
 type DebuggerState string
 
 type Debugger struct {
-	executor             *Executor
-	stackTableWriter     *tablewriter.Table
-	heapTableWriter      *tablewriter.Table
-	labelMapTableWriter  *tablewriter.Table
-	callStackTableWriter *tablewriter.Table
-	breakPoints          mapset.Set[int]
-	state                DebuggerState
-	stdin                *liner.State
-	stdout               string
+	executor               *Executor
+	stackTableWriter       *tablewriter.Table
+	heapTableWriter        *tablewriter.Table
+	labelMapTableWriter    *tablewriter.Table
+	callStackTableWriter   *tablewriter.Table
+	breakPoints            mapset.Set[int]
+	breakPointsTableWriter *tablewriter.Table
+	state                  DebuggerState
+	stdin                  *liner.State
+	stdout                 string
 }
 
 func NewDebugger(executor *Executor) *Debugger {
@@ -62,15 +63,19 @@ func NewDebugger(executor *Executor) *Debugger {
 	breakPoints := mapset.NewSet[int]()
 	breakPoints.Add(0)
 
+	breakPointsTableWriter := tablewriter.NewWriter(os.Stdout)
+	breakPointsTableWriter.SetHeader([]string{"Breakpoints"})
+
 	debugger := &Debugger{
-		executor:             executor,
-		stackTableWriter:     stackTableWriter,
-		heapTableWriter:      heapTableWriter,
-		labelMapTableWriter:  labelMapTableWriter,
-		callStackTableWriter: callStackTableWriter,
-		breakPoints:          breakPoints,
-		state:                DebuggerInterrupting,
-		stdin:                liner.NewLiner(),
+		executor:               executor,
+		stackTableWriter:       stackTableWriter,
+		heapTableWriter:        heapTableWriter,
+		labelMapTableWriter:    labelMapTableWriter,
+		callStackTableWriter:   callStackTableWriter,
+		breakPoints:            breakPoints,
+		breakPointsTableWriter: breakPointsTableWriter,
+		state:                  DebuggerInterrupting,
+		stdin:                  liner.NewLiner(),
 	}
 
 	debugger.executor.Input = func() string {
@@ -176,6 +181,9 @@ func (d *Debugger) handleCommand() error {
 			case "ii", "info instructions":
 				d.stdin.AppendHistory(command)
 				d.showInstructions()
+			case "ib", "info breakpoints":
+				d.stdin.AppendHistory(command)
+				d.showBreakpoints()
 			case "c", "continue":
 				d.stdin.AppendHistory(command)
 				d.state = DebuggerContinuing
@@ -269,6 +277,15 @@ func (d *Debugger) showInstructions() {
 			fmt.Printf("   %04d %s\n", i, ins.Disassenble())
 		}
 	}
+}
+
+func (d *Debugger) showBreakpoints() {
+	d.breakPointsTableWriter.ClearRows()
+	for b := range d.breakPoints.Iter() {
+		d.breakPointsTableWriter.Append([]string{fmt.Sprintf("%d", b)})
+	}
+	fmt.Printf("\n")
+	d.breakPointsTableWriter.Render()
 }
 
 func (d *Debugger) handleCommandWithArg(name, arg string) error {
