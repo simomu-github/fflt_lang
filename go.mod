@@ -1,8 +1,9 @@
 module github.com/simomu-github/fflt_lang
 
-go 1.17
+go 1.22
 
 require (
+	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterh/liner v1.2.2
 	github.com/stretchr/testify v1.7.1

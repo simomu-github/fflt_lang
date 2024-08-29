@@ -406,7 +406,7 @@ func (m MarkLabel) Execute(executor *Executor) error {
 }
 
 func (m MarkLabel) Disassenble() string {
-	return "\nLABEL          " + m.Label
+	return "LABEL          " + m.Label
 }
 
 type CallSubroutine struct {

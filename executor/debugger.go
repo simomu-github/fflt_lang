@@ -5,19 +5,34 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/olekukonko/tablewriter"
 	"github.com/peterh/liner"
 )
 
 var (
-	commands = []string{"s", "step", "is", "info stack", "ih", "info heap", "iv", "info vm"}
+	commands = []string{
+		"s", "step",
+		"is", "info stack",
+		"ih", "info heap",
+		"iv", "info vm",
+		"ii", "info instructions",
+		"b", "break",
+		"d", "delete",
+		"c", "continue",
+	}
 )
 
 const (
-	HeaderLength = 64
+	HeaderLength         = 64
+	DebuggerInterrupting = "INTERRUPTING"
+	DebuggerContinuing   = "CONTINUING"
 )
+
+type DebuggerState string
 
 type Debugger struct {
 	executor             *Executor
@@ -25,6 +40,8 @@ type Debugger struct {
 	heapTableWriter      *tablewriter.Table
 	labelMapTableWriter  *tablewriter.Table
 	callStackTableWriter *tablewriter.Table
+	breakPoints          mapset.Set[int]
+	state                DebuggerState
 	stdin                *liner.State
 	stdout               string
 }
@@ -42,22 +59,31 @@ func NewDebugger(executor *Executor) *Debugger {
 	callStackTableWriter := tablewriter.NewWriter(os.Stdout)
 	callStackTableWriter.SetHeader([]string{"Instruction index"})
 
+	breakPoints := mapset.NewSet[int]()
+	breakPoints.Add(0)
+
 	debugger := &Debugger{
 		executor:             executor,
 		stackTableWriter:     stackTableWriter,
 		heapTableWriter:      heapTableWriter,
 		labelMapTableWriter:  labelMapTableWriter,
 		callStackTableWriter: callStackTableWriter,
+		breakPoints:          breakPoints,
+		state:                DebuggerInterrupting,
 		stdin:                liner.NewLiner(),
 	}
 
-	executor.Input = func() string {
+	debugger.executor.Input = func() string {
 		str, _ := debugger.stdin.Prompt("")
 		return str
 	}
 
-	executor.Output = func(value string) {
-		debugger.stdout += value
+	debugger.executor.Output = func(value string) {
+		if debugger.state == DebuggerInterrupting {
+			debugger.stdout += value
+		} else {
+			fmt.Printf(value)
+		}
 	}
 
 	return debugger
@@ -89,15 +115,28 @@ func (d *Debugger) Run() error {
 	d.executor.programCounter = 0
 
 	for d.executor.programCounter = 0; d.executor.programCounter < len(d.executor.Instructions); {
-		inst := d.executor.Instructions[d.executor.programCounter]
-		fmt.Printf("\n")
-		fmt.Printf("Program counter: %d\n", d.executor.programCounter)
-		fmt.Printf("Current instruction: " + inst.Disassenble() + "\n")
-		fmt.Printf("Output: " + d.stdout + "\n")
-		d.showStack()
+		if d.breakPoints.Contains(d.executor.programCounter) {
+			d.state = DebuggerInterrupting
+		}
 
-		if err := d.handleCommand(); err != nil {
-			return err
+		if d.state == DebuggerInterrupting {
+			inst := d.executor.Instructions[d.executor.programCounter]
+			fmt.Printf("\n")
+			fmt.Printf("Program counter: %d\n", d.executor.programCounter)
+			fmt.Printf("Current instruction: " + inst.Disassenble() + "\n")
+			fmt.Printf("Output: " + d.stdout + "\n")
+			d.showStack()
+
+			if err := d.handleCommand(); err != nil {
+				return err
+			}
+		} else {
+			err := d.executor.Instructions[d.executor.programCounter].Execute(d.executor)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err.Error())
+			} else {
+				d.executor.programCounter++
+			}
 		}
 	}
 
@@ -134,6 +173,26 @@ func (d *Debugger) handleCommand() error {
 			case "iv", "info vm":
 				d.stdin.AppendHistory(command)
 				d.showVM()
+			case "ii", "info instructions":
+				d.stdin.AppendHistory(command)
+				d.showInstructions()
+			case "c", "continue":
+				d.stdin.AppendHistory(command)
+				d.state = DebuggerContinuing
+
+				err := d.executor.Instructions[d.executor.programCounter].Execute(d.executor)
+				if err != nil {
+					fmt.Fprintln(os.Stderr, err.Error())
+				} else {
+					d.executor.programCounter++
+				}
+				return nil
+			default:
+				split := strings.SplitN(command, " ", 2)
+				if len(split) < 2 {
+					return nil
+				}
+				d.handleCommandWithArg(split[0], split[1])
 			}
 		} else {
 			return err
@@ -199,6 +258,27 @@ func (d *Debugger) showCallStack() {
 	fmt.Printf("\n")
 	outputHeader("Callstack")
 	d.callStackTableWriter.Render()
+}
+
+func (d *Debugger) showInstructions() {
+	for i, ins := range d.executor.Instructions {
+		fmt.Printf("%04d %s\n", i, ins.Disassenble())
+	}
+}
+
+func (d *Debugger) handleCommandWithArg(name, arg string) error {
+	n, err := strconv.Atoi(arg)
+	if err != nil {
+		return err
+	}
+
+	switch name {
+	case "b", "break":
+		d.breakPoints.Add(n)
+	case "d", "delete":
+		d.breakPoints.Remove(n)
+	}
+	return nil
 }
 
 func outputHeader(title string) {
