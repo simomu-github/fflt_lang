@@ -27,9 +27,9 @@ var (
 )
 
 const (
-	HeaderLength         = 64
-	DebuggerInterrupting = "INTERRUPTING"
-	DebuggerContinuing   = "CONTINUING"
+	HeaderLength           = 64
+	DebuggerStateInterrupt = "INTERRUPTING"
+	DebuggerStateContinue  = "CONTINUING"
 )
 
 type DebuggerState string
@@ -74,7 +74,7 @@ func NewDebugger(executor *Executor) *Debugger {
 		callStackTableWriter:   callStackTableWriter,
 		breakPoints:            breakPoints,
 		breakPointsTableWriter: breakPointsTableWriter,
-		state:                  DebuggerInterrupting,
+		state:                  DebuggerStateInterrupt,
 		stdin:                  liner.NewLiner(),
 	}
 
@@ -84,7 +84,7 @@ func NewDebugger(executor *Executor) *Debugger {
 	}
 
 	debugger.executor.Output = func(value string) {
-		if debugger.state == DebuggerInterrupting {
+		if debugger.state == DebuggerStateInterrupt {
 			debugger.stdout += value
 		} else {
 			fmt.Printf(value)
@@ -121,27 +121,18 @@ func (d *Debugger) Run() error {
 
 	for d.executor.programCounter = 0; d.executor.programCounter < len(d.executor.Instructions); {
 		if d.breakPoints.Contains(d.executor.programCounter) {
-			d.state = DebuggerInterrupting
+			d.state = DebuggerStateInterrupt
 		}
 
-		if d.state == DebuggerInterrupting {
-			inst := d.executor.Instructions[d.executor.programCounter]
-			fmt.Printf("\n")
-			fmt.Printf("Program counter: %d\n", d.executor.programCounter)
-			fmt.Printf("Current instruction: " + inst.Disassenble() + "\n")
-			fmt.Printf("Output: " + d.stdout + "\n")
+		if d.state == DebuggerStateInterrupt {
+			d.showDebuggerStatus()
 			d.showStack()
 
 			if err := d.handleCommand(); err != nil {
 				return err
 			}
 		} else {
-			err := d.executor.Instructions[d.executor.programCounter].Execute(d.executor)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err.Error())
-			} else {
-				d.executor.programCounter++
-			}
+			d.executeInstruction()
 		}
 	}
 
@@ -161,13 +152,12 @@ func (d *Debugger) handleCommand() error {
 			switch command {
 			case "s", "step":
 				d.stdin.AppendHistory(command)
-
-				err := d.executor.Instructions[d.executor.programCounter].Execute(d.executor)
-				if err != nil {
-					fmt.Fprintln(os.Stderr, err.Error())
-				} else {
-					d.executor.programCounter++
-				}
+				d.executeInstruction()
+				return nil
+			case "c", "continue":
+				d.stdin.AppendHistory(command)
+				d.state = DebuggerStateContinue
+				d.executeInstruction()
 				return nil
 			case "is", "info stack":
 				d.stdin.AppendHistory(command)
@@ -184,21 +174,10 @@ func (d *Debugger) handleCommand() error {
 			case "ib", "info breakpoints":
 				d.stdin.AppendHistory(command)
 				d.showBreakpoints()
-			case "c", "continue":
-				d.stdin.AppendHistory(command)
-				d.state = DebuggerContinuing
-
-				err := d.executor.Instructions[d.executor.programCounter].Execute(d.executor)
-				if err != nil {
-					fmt.Fprintln(os.Stderr, err.Error())
-				} else {
-					d.executor.programCounter++
-				}
-				return nil
 			default:
 				split := strings.SplitN(command, " ", 2)
 				if len(split) < 2 {
-					return nil
+					break
 				}
 				d.handleCommandWithArg(split[0], split[1])
 			}
@@ -208,6 +187,38 @@ func (d *Debugger) handleCommand() error {
 	}
 
 	return nil
+}
+
+func (d *Debugger) handleCommandWithArg(name, arg string) error {
+	n, err := strconv.Atoi(arg)
+	if err != nil {
+		return err
+	}
+
+	switch name {
+	case "b", "break":
+		d.breakPoints.Add(n)
+	case "d", "delete":
+		d.breakPoints.Remove(n)
+	}
+	return nil
+}
+
+func (d *Debugger) executeInstruction() {
+	err := d.executor.Instructions[d.executor.programCounter].Execute(d.executor)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	} else {
+		d.executor.programCounter++
+	}
+}
+
+func (d *Debugger) showDebuggerStatus() {
+	inst := d.executor.Instructions[d.executor.programCounter]
+	fmt.Printf("\n")
+	fmt.Printf("Program counter: %d\n", d.executor.programCounter)
+	fmt.Printf("Current instruction: " + inst.Disassenble() + "\n")
+	fmt.Printf("Output: " + d.stdout + "\n")
 }
 
 func (d *Debugger) showVM() {
@@ -270,6 +281,8 @@ func (d *Debugger) showCallStack() {
 
 func (d *Debugger) showInstructions() {
 	fmt.Printf("\n")
+	outputHeader("Instructions")
+	fmt.Printf("\n")
 	for i, ins := range d.executor.Instructions {
 		if d.executor.programCounter == i {
 			fmt.Printf("-> %04d %s\n", i, ins.Disassenble())
@@ -286,21 +299,6 @@ func (d *Debugger) showBreakpoints() {
 	}
 	fmt.Printf("\n")
 	d.breakPointsTableWriter.Render()
-}
-
-func (d *Debugger) handleCommandWithArg(name, arg string) error {
-	n, err := strconv.Atoi(arg)
-	if err != nil {
-		return err
-	}
-
-	switch name {
-	case "b", "break":
-		d.breakPoints.Add(n)
-	case "d", "delete":
-		d.breakPoints.Remove(n)
-	}
-	return nil
 }
 
 func outputHeader(title string) {
