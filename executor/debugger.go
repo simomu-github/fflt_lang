@@ -261,8 +261,13 @@ func (d *Debugger) showCallStack() {
 }
 
 func (d *Debugger) showInstructions() {
+	fmt.Printf("\n")
 	for i, ins := range d.executor.Instructions {
-		fmt.Printf("%04d %s\n", i, ins.Disassenble())
+		if d.executor.programCounter == i {
+			fmt.Printf("-> %04d %s\n", i, ins.Disassenble())
+		} else {
+			fmt.Printf("   %04d %s\n", i, ins.Disassenble())
+		}
 	}
 }
 
