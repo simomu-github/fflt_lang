@@ -16,20 +16,37 @@ import (
 var (
 	commands = []string{
 		"s", "step",
+		"c", "continue",
+		"b", "break",
+		"d", "delete",
+		"ib", "info breakpoints",
 		"is", "info stack",
 		"ih", "info heap",
 		"iv", "info vm",
 		"ii", "info instructions",
-		"b", "break",
-		"d", "delete",
-		"c", "continue",
+		"h", "help",
+		"exit",
 	}
+
+	help = `step, s --- Step instruction
+continue, c --- Disassenble instructions
+break [N], b [N] --- Set breakpoint at Nth instruction
+delete [N], d [N] --- Delete breakpoint at Nth instruction
+info breakpoints, ib --- Show breakpoints
+info stack, is --- Show stack information
+info heap, ih --- Show heap information
+info vm, iv --- Show VM information
+info instructions, ii --- Disassenble instructions
+help, h --- Show help
+exit --- Exit debugger
+`
 )
 
 const (
 	HeaderLength           = 64
 	DebuggerStateInterrupt = "INTERRUPTING"
 	DebuggerStateContinue  = "CONTINUING"
+	DebuggerStateExit      = "EXIT"
 )
 
 type DebuggerState string
@@ -120,6 +137,9 @@ func (d *Debugger) Run() error {
 	d.executor.programCounter = 0
 
 	for d.executor.programCounter = 0; d.executor.programCounter < len(d.executor.Instructions); {
+		if d.state == DebuggerStateExit {
+			break
+		}
 		if d.breakPoints.Contains(d.executor.programCounter) {
 			d.state = DebuggerStateInterrupt
 		}
@@ -174,9 +194,16 @@ func (d *Debugger) handleCommand() error {
 			case "ib", "info breakpoints":
 				d.stdin.AppendHistory(command)
 				d.showBreakpoints()
+			case "h", "help":
+				d.stdin.AppendHistory(command)
+				d.showHelp()
+			case "exit":
+				d.state = DebuggerStateExit
+				return nil
 			default:
 				split := strings.SplitN(command, " ", 2)
 				if len(split) < 2 {
+					d.showUnknownCommand(command)
 					break
 				}
 				d.handleCommandWithArg(split[0], split[1])
@@ -200,6 +227,8 @@ func (d *Debugger) handleCommandWithArg(name, arg string) error {
 		d.breakPoints.Add(n)
 	case "d", "delete":
 		d.breakPoints.Remove(n)
+	default:
+		d.showUnknownCommand(name)
 	}
 	return nil
 }
@@ -299,6 +328,14 @@ func (d *Debugger) showBreakpoints() {
 	}
 	fmt.Printf("\n")
 	d.breakPointsTableWriter.Render()
+}
+
+func (d *Debugger) showHelp() {
+	fmt.Print(help)
+}
+
+func (d *Debugger) showUnknownCommand(command string) {
+	fmt.Printf("Unknown command: \"%s\", Try \"help\"\n", command)
 }
 
 func outputHeader(title string) {
