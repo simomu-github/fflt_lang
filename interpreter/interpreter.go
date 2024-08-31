@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/simomu-github/fflt_lang/executor"
@@ -50,7 +49,7 @@ func (i *Interpreter) Run() int {
 
 	filename := flag.Arg(0)
 
-	bytes, errReadFile := ioutil.ReadFile(filename)
+	bytes, errReadFile := os.ReadFile(filename)
 	if errReadFile != nil {
 		fmt.Fprintf(i.stderr, "%s can not read\n", filename)
 		return 1
