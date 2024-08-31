@@ -16,7 +16,7 @@ import (
 var (
 	versionOpt = flag.Bool("v", false, "display version information")
 	dumpOpt    = flag.Bool("dump", false, "disassemble instructions")
-	debugOpt   = flag.Bool("debug", false, "debugger")
+	debugOpt   = flag.Bool("debug", false, "run with debugger")
 )
 
 const version = "v0.0.2"
