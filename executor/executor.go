@@ -1,5 +1,9 @@
 package executor
 
+import (
+	"fmt"
+)
+
 type Executor struct {
 	Filename       string
 	Instructions   []Instruction
@@ -27,9 +31,8 @@ func (executor *Executor) Run() error {
 }
 
 func (executor *Executor) Disassenble() {
-	for _, ins := range executor.Instructions {
-		executor.Output(ins.Disassenble())
-		executor.Output("\n")
+	for i, ins := range executor.Instructions {
+		executor.Output(fmt.Sprintf("%04d %s\n", i, ins.Disassenble()))
 	}
 }
 

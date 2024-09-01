@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/simomu-github/fflt_lang/executor"
@@ -16,6 +15,7 @@ import (
 var (
 	versionOpt = flag.Bool("v", false, "display version information")
 	dumpOpt    = flag.Bool("dump", false, "disassemble instructions")
+	debugOpt   = flag.Bool("debug", false, "run with debugger")
 )
 
 const version = "v0.0.2"
@@ -49,7 +49,7 @@ func (i *Interpreter) Run() int {
 
 	filename := flag.Arg(0)
 
-	bytes, errReadFile := ioutil.ReadFile(filename)
+	bytes, errReadFile := os.ReadFile(filename)
 	if errReadFile != nil {
 		fmt.Fprintf(i.stderr, "%s can not read\n", filename)
 		return 1
@@ -67,7 +67,7 @@ func (i *Interpreter) Run() int {
 		return 1
 	}
 
-	executor := executor.Executor{
+	exe := executor.Executor{
 		Filename:     filename,
 		Instructions: instructions,
 		LabelMap:     labelMap,
@@ -82,11 +82,20 @@ func (i *Interpreter) Run() int {
 	}
 
 	if *dumpOpt {
-		executor.Disassenble()
+		exe.Disassenble()
 		return 0
 	}
 
-	errRuntime := executor.Run()
+	if *debugOpt {
+		debugger := executor.NewDebugger(&exe)
+		if err := debugger.Run(); err != nil {
+			fmt.Fprintln(i.stderr, err.Error())
+			return 1
+		}
+		return 0
+	}
+
+	errRuntime := exe.Run()
 	if errRuntime != nil {
 		fmt.Fprintln(i.stderr, errRuntime.Error())
 		return 1
