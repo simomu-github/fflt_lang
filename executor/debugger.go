@@ -46,6 +46,7 @@ const (
 	HeaderLength           = 64
 	DebuggerStateInterrupt = "INTERRUPTING"
 	DebuggerStateContinue  = "CONTINUING"
+	DebuggerStateError     = "ERROR"
 	DebuggerStateExit      = "EXIT"
 )
 
@@ -62,6 +63,7 @@ type Debugger struct {
 	state                  DebuggerState
 	stdin                  *liner.State
 	stdout                 string
+	lastoccurredError      error
 }
 
 func NewDebugger(executor *Executor) *Debugger {
@@ -144,7 +146,7 @@ func (d *Debugger) Run() error {
 			d.state = DebuggerStateInterrupt
 		}
 
-		if d.state == DebuggerStateInterrupt {
+		if d.state == DebuggerStateInterrupt || d.state == DebuggerStateError {
 			d.showDebuggerStatus()
 			d.showStack()
 
@@ -176,8 +178,10 @@ func (d *Debugger) handleCommand() error {
 				return nil
 			case "c", "continue":
 				d.stdin.AppendHistory(command)
-				d.state = DebuggerStateContinue
 				d.executeInstruction()
+				if d.state == DebuggerStateInterrupt {
+					d.state = DebuggerStateContinue
+				}
 				return nil
 			case "is", "info stack":
 				d.stdin.AppendHistory(command)
@@ -235,9 +239,16 @@ func (d *Debugger) handleCommandWithArg(name, arg string) error {
 }
 
 func (d *Debugger) executeInstruction() {
+	if d.state == DebuggerStateError {
+		fmt.Fprintf(os.Stderr, "Runtime error occured: (%s)\n", d.lastoccurredError.Error())
+		return
+	}
+
 	err := d.executor.Instructions[d.executor.programCounter].Execute(d.executor)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
+		d.state = DebuggerStateError
+		d.lastoccurredError = err
 	} else {
 		d.executor.programCounter++
 	}
