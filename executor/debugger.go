@@ -103,9 +103,8 @@ func NewDebugger(executor *Executor) *Debugger {
 	}
 
 	debugger.executor.Output = func(value string) {
-		if debugger.state == DebuggerStateInterrupt {
-			debugger.stdout += value
-		} else {
+		debugger.stdout += value
+		if debugger.state == DebuggerStateContinue {
 			fmt.Printf(value)
 		}
 	}
