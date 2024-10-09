@@ -219,7 +219,8 @@ func (d *Debugger) handleCommand() error {
 func (d *Debugger) handleCommandWithArg(name, arg string) error {
 	n, err := strconv.Atoi(arg)
 	if err != nil {
-		return err
+		fmt.Printf("Invalid command arguments: \"%s %s\", Try \"help\"\n", name, arg)
+		return nil
 	}
 
 	switch name {
