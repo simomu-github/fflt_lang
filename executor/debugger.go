@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -284,10 +285,15 @@ func (d *Debugger) showStack() {
 
 func (d *Debugger) showHeap() {
 	d.heapTableWriter.ClearRows()
-	for k, v := range d.executor.heap {
+	keys := []int{}
+	for k := range d.executor.heap {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+	for _, key := range keys {
 		d.heapTableWriter.Append([]string{
-			fmt.Sprintf("%d", k),
-			fmt.Sprintf("%d", v),
+			fmt.Sprintf("%d", key),
+			fmt.Sprintf("%d", d.executor.heap[key]),
 		})
 	}
 
@@ -298,10 +304,15 @@ func (d *Debugger) showHeap() {
 
 func (d *Debugger) showLabelMap() {
 	d.labelMapTableWriter.ClearRows()
-	for k, v := range d.executor.LabelMap {
+	keys := []string{}
+	for k := range d.executor.LabelMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
 		d.labelMapTableWriter.Append([]string{
-			k,
-			fmt.Sprintf("%d", v),
+			key,
+			fmt.Sprintf("%d", d.executor.LabelMap[key]),
 		})
 	}
 	fmt.Printf("\n")
