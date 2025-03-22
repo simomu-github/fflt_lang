@@ -1,6 +1,6 @@
 module github.com/simomu-github/fflt_lang
 
-go 1.22
+go 1.23
 
 require (
 	github.com/deckarep/golang-set/v2 v2.6.0
