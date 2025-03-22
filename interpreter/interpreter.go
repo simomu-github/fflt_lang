@@ -18,7 +18,7 @@ var (
 	debugOpt   = flag.Bool("debug", false, "run with debugger")
 )
 
-const version = "v0.0.2"
+const version = "v0.0.3"
 
 type Interpreter struct {
 	stderr io.Writer
